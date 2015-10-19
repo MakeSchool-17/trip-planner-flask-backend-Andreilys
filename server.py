@@ -3,7 +3,6 @@ from flask_restful import Resource, Api
 from pymongo import MongoClient
 from bson.objectid import ObjectId
 from utils.mongo_json_encoder import JSONEncoder
-
 # Basic Setup
 app = Flask(__name__)
 mongo = MongoClient('localhost', 27017)
@@ -11,33 +10,95 @@ app.db = mongo.develop_database
 api = Api(app)
 
 
-# Implement REST Resource
-class MyObject(Resource):
-
+class User(Resource):
     def post(self):
-        new_myobject = request.json
-        myobject_collection = app.db.myobjects
-        result = myobject_collection.insert_one(request.json)
+        new_user = request.json
+        user_list = app.db.users
+        result = user_list.insert_one(new_user)
+        user = user_list.find_one({"_id": ObjectId(result.inserted_id)})
+        return user
 
-        myobject = myobject_collection.find_one(
-            {"_id": ObjectId(result.inserted_id)})
-
-        return myobject
-
-    def get(self, myobject_id):
-        myobject_collection = app.db.myobjects
-        myobject = myobject_collection.find_one({"_id": ObjectId(myobject_id)})
-
-        if myobject is None:
+    def get(self, user_id):
+        user_list = app.db.users
+        user = user_list.find_one({"_id": ObjectId(user_id)})
+        if user is None:
             response = jsonify(data=[])
             response.status_code = 404
             return response
         else:
-            return myobject
+            return user
+
+api.add_resource(User, '/users/', '/users/<string:user_id>')
 
 
-# Add REST resource to API
-api.add_resource(MyObject, '/myobject/', '/myobject/<string:myobject_id>')
+class Trip(Resource):
+    # creating a trip with the waypoints
+    def post(self):
+        new_trip = request.json
+        trip_list = app.db.trips
+        result = trip_list.insert_one(new_trip)
+        trip = trip_list.find_one({"_id": ObjectId(result.inserted_id)})
+        return trip
+
+    # retrieve a specific trip ID
+    def get(self, trip_id=None):
+        trip_list = app.db.trips
+        trip = trip_list.find_one({"_id": ObjectId(trip_id)})
+        if trip is None:
+            response = jsonify(data=[])
+            response.status_code = 404
+            return response
+        else:
+            return trip
+
+    # get all the trip ID's
+    def get_all(self):
+        trip_list = app.db.trips
+        if trip_list is None:
+            response = jsonify(data=[])
+            response.status_code = 404
+            return response
+        else:
+            return trip_list
+
+    # updating a trip with waypoints
+    def put(self, trip_id):
+        trip = trip_list.find_one({"_id": ObjectId(trip_id)})
+        if trip is None:
+            response = jsonify(data=[])
+            response.status_code = 404
+            return response
+        else:
+            modifying_trip = request.json
+            trip_list = app.db.trips
+            trip = trip_list.update_one({"_id": ObjectId(trip_id)})
+            return trip
+
+    # deleting a specific waypoint
+    def delete(self, trip_id):
+        trip_collection = app.db.trips
+        trip = trip_collection.find_one({"_id": ObjectId(trip_id)})
+        if trip is None:
+            response = jsonify(data=[])
+            response.status_code = 404
+            return response
+        else:
+            if trip["username"] == request.json["username"]:
+                result = trip_collection.delete_one({"_id": ObjectId(trip_id)})
+                if result.deleted_count == 1:
+                    response = jsonify(data=[])
+                    response.status_code = 200
+                    return response
+                else:
+                    response = jsonify(data=[])
+                    response.status_code = 500
+                    return response
+            else:
+                response = jsonify(data=[])
+                response.status_code = 401
+                return response
+
+api.add_resource(Trip, '/trips/', '/trips/<string:trip_id>')
 
 
 # provide a custom JSON serializer for flaks_restful
@@ -49,6 +110,6 @@ def output_json(data, code, headers=None):
 
 if __name__ == '__main__':
     # Turn this on in debug mode to get detailed information
-    # about request related exceptions: http://flask.pocoo.org/docs/0.10/config/
+    # about request related exceptions: http://flask.pocoo.org/docs/0.10/config
     app.config['TRAP_BAD_REQUEST_ERRORS'] = True
     app.run(debug=True)
