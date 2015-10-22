@@ -22,9 +22,8 @@ def check_auth(username, password):
     # the password that was stored in the database (currently hashed)
     stored_pw = user["password"]
     encoded_pw = password.encode("utf-8")
-    hashed_pw = bcrypt.hashpw(encoded_pw, bcrypt.gensalt(app.bcrypt_rounds))
-    print(stored_pw)
-    print(hashed_pw)
+    hashed_pw = bcrypt.hashpw(encoded_pw, stored_pw)
+    # TODO the passwords here are messed up
     return stored_pw == hashed_pw
 
 
@@ -43,15 +42,16 @@ def requires_auth(f):
 
 class Users(Resource):
     @requires_auth
-    def get(self, user_id):
-        print("is this working?")
+    def get(self):
+        username = request.authorization.username
         user_list = app.db.users
-        user = user_list.find_one({"_id": ObjectId(user_id)})
+        user = user_list.find_one({"username": username})
         if user is None:
             response = jsonify(data=[])
             response.status_code = 404
             return response
         else:
+            del user["password"]
             return user
 
     def post(self):
@@ -64,7 +64,6 @@ class Users(Resource):
         # why do I need to return here?
         inserted_user = user_collection.find_one({"_id": ObjectId(result.inserted_id)})
         del inserted_user['password']  # DO NOT return hashed password to client
-        print(inserted_user)
         return inserted_user
 
 
@@ -77,9 +76,9 @@ class Trips(Resource):
     # if I set trip_id to none, and I pass a value, will it change?
     def get(self, trip_id=None):
         # retrieve database of trips (resource)
-        trip_list = app.db.trips
+        trip_collection = app.db.trips
         if trip_id:
-            trip = trip_list.find_one({"_id": ObjectId(trip_id)})
+            trip = trip_collection.find_one({"_id": ObjectId(trip_id)})
             # if none throw an error
             if trip is None:
                 response = jsonify(data=[])
@@ -88,8 +87,9 @@ class Trips(Resource):
             else:
                 return trip
         else:
-            user_trips = trip_list.find_many({"username": request.authorization.username})
-            return user_trips
+            # TODO figure out Get All method
+            user_trips = trip_collection.find({"username": request.authorization.username})
+            return list(user_trips)
 
     # posts a new trip with ID
     @requires_auth
@@ -107,8 +107,9 @@ class Trips(Resource):
     def put(self, trip_id):
         new_trip = request.json
         trip_collection = app.db.trips
-        old_trip = trip_collection.update_one({"_id": ObjectId(trip_id)}, {'$set': new_trip})
-        return old_trip
+        old_trip = trip_collection.update_one({"_id": ObjectId(trip_id)}, {'$set': new_trip}, upsert=False)
+        mod_trip = trip_collection.find_one({"_id": ObjectId(trip_id)})
+        return mod_trip
 
     # Takes in trip_id, deletes, and returns response
     @requires_auth
