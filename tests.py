@@ -97,13 +97,14 @@ class FlaskrTestCase(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         assert 'Paris' in responseJSON["trip"]
 
-    def test_getting_non_existent_object(self):
+    def test_getting_non_existent_trip(self):
+        print("test getting non exisistent object")
         headers = {'Authorization': 'Basic '
                     + b64encode("{0}:{1}".format("name", "github").encode("utf-8")).decode("utf-8")}
         response = self.app.get('/trips/55f0cbb4236f44b7f0e3cb23', headers=headers)
         self.assertEqual(response.status_code, 404)
 
-    def test_modifying_object(self):
+    def test_modifying_trip(self):
         headers = self.headers()
         response = self.app.post(
             '/trips/',
@@ -118,7 +119,8 @@ class FlaskrTestCase(unittest.TestCase):
         responseJSON = json.loads(response.data.decode())
         assert "Toronto" in responseJSON["trip"]
         #
-    def test_deleting_object(self):
+    def test_deleting_trip(self):
+        print("test deleting trip")
         headers = self.headers()
         response = self.app.post(
             '/trips/',
